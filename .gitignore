@@ -1,0 +1,15 @@
+# Build artifacts
+*.o
+*.out
+http-server
+
+# Debug / profiling
+vgcore.*
+*.dSYM/
+core
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
