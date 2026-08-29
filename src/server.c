@@ -9,20 +9,19 @@
 void send_all(int fd, const char *data, size_t len) {
     size_t total_sent = 0;
     while(total_sent < len) {
-        ssize_t sent = write( fd, data + total_sent, len - total_sent);
+        //write data to socket, update total_sent
+        ssize_t sent = write(fd, data + total_sent, len - total_sent);
         if(sent == -1 ) {
             perror("write");
             return;
         }
         total_sent += sent;
     }
-
 }
-int run() {
 
-    struct addrinfo hints, *res, *p;
-    int opt_val = 1;
-    int file_descriptor_socket, err;
+int run() {
+    struct addrinfo hints, *res, *pointer_addrinfo;
+    int file_descriptor_socket, addr_or_err;
     //clear bytes on hints struct
     memset(&hints, 0, sizeof(hints));
     //set hints struct fields
@@ -31,35 +30,37 @@ int run() {
     hints.ai_flags = AI_PASSIVE;
 
     //getaddrinfo to get the address info for the socket
-    err = getaddrinfo(NULL, "8080", &hints, &res);
+    addr_or_err= getaddrinfo(NULL, "8080", &hints, &res);
 
     //if getaddrinfo fails, print error and return
-    if(err) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(err));
+    if(addr_or_err) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(addr_or_err));
         return 1;
     }
 
-    p = res;
+    pointer_addrinfo = res;
+    int opt_val = 1;
 
     //loop through the address info and bind to the first valid address
-    while(p) {
+    while(pointer_addrinfo) {
         //create socket
-        file_descriptor_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        file_descriptor_socket = socket(pointer_addrinfo->ai_family, pointer_addrinfo->ai_socktype, pointer_addrinfo->ai_protocol);
+
 
         //set socket options to allow address reuse
         setsockopt(file_descriptor_socket, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
 
-        if(file_descriptor_socket == -1 || bind(file_descriptor_socket, p->ai_addr, p->ai_addrlen) == -1) {
+        if(file_descriptor_socket == -1 || bind(file_descriptor_socket, pointer_addrinfo->ai_addr, pointer_addrinfo->ai_addrlen) == -1) {
             perror("bind");
             close(file_descriptor_socket);
-            p = p->ai_next;
+            pointer_addrinfo = pointer_addrinfo->ai_next;
         } else {
-             break;
+            break;
         }
 
     }
     //
-    if(!p) {
+    if(!pointer_addrinfo) {
         freeaddrinfo(res);
         return 1;
     }
@@ -80,16 +81,16 @@ int run() {
             continue;
         }
         printf("Connection accepted\n");
-        const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\nContent-Type: text/plain\r\n\r\nHello";
+        const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\nContent-Type: text/plain\r\n\r\nHello, World!";
         send_all(fd_result, response, strlen(response));
         close(fd_result);
+
     }
 
     //free memory and return
     freeaddrinfo(res);
     return 0;
 }
-
 
 int main() {
     return run();
