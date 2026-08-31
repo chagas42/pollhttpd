@@ -7,8 +7,6 @@
 #include "files.h"
 #include "harness.h"
 
-/* Builds a real tree on disk: www/ with a file inside, a secret OUTSIDE
- * it, and a symlink from within pointing at that secret. */
 static void given_tree(char *root_out, size_t cap) {
     char base[] = "/tmp/httpc-test-XXXXXX";
     char *dir = mkdtemp(base);
@@ -80,7 +78,7 @@ void test_files(void) {
 
     TEST("percent-encoded traversal is blocked");
     {
-        /* a textual ".." filter misses these */
+
         CHECK_INT(file_load(root, "/%2e%2e/segredo.txt", &content), FILE_FORBIDDEN);
         CHECK_INT(file_load(root, "/%2E%2E/segredo.txt", &content), FILE_FORBIDDEN);
         CHECK_INT(file_load(root, "/..%2fsegredo.txt", &content), FILE_FORBIDDEN);
@@ -88,7 +86,7 @@ void test_files(void) {
 
     TEST("symlink pointing outside is blocked");
     {
-        /* lexical normalization misses this one; only realpath reveals it */
+
         CHECK_INT(file_load(root, "/escape", &content), FILE_FORBIDDEN);
     }
 

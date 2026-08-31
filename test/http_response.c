@@ -29,7 +29,6 @@ void test_http_response(void) {
         http_response_build(&get,  200, "OK", "text/plain", body, 10, 0);
         http_response_build(&head, 200, "OK", "text/plain", body, 10, 0);
 
-        /* HEAD sends only up to headers_len; the bytes are identical */
         CHECK_INT(head.headers_len, get.headers_len);
         CHECK_INT(memcmp(get.data, head.data, head.headers_len), 0);
         CHECK_INT(get.len - get.headers_len, 10);

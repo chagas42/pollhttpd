@@ -1,7 +1,4 @@
-# pollhttpd — build tuned for debugging: aggressive warnings, debug symbols.
-
 CC      := cc
-# -D_DEFAULT_SOURCE exposes realpath, which _POSIX_C_SOURCE alone hides.
 CFLAGS  := -Wall -Wextra -g -std=c11 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
 LDFLAGS :=
 
@@ -10,8 +7,6 @@ SRCDIR  := src
 SRCS    := $(wildcard $(SRCDIR)/*.c)
 OBJS    := $(SRCS:.c=.o)
 
-# Tests link the suites against every module except main.c, since the
-# runner brings its own main.
 TESTDIR   := test
 TEST_BIN  := $(TESTDIR)/run
 TEST_SRCS := $(wildcard $(TESTDIR)/*.c)
@@ -24,7 +19,6 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
-# One rule per object file.
 $(SRCDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -37,7 +31,6 @@ test: $(TEST_BIN)
 $(TEST_BIN): $(TEST_SRCS) $(LIB_SRCS) $(wildcard $(SRCDIR)/*.h) $(TESTDIR)/harness.h
 	$(CC) $(CFLAGS) -I$(SRCDIR) -o $@ $(TEST_SRCS) $(LIB_SRCS) $(LDFLAGS)
 
-# Memory checking under valgrind.
 memcheck: $(TARGET)
 	valgrind --leak-check=full \
 	         --show-leak-kinds=all \

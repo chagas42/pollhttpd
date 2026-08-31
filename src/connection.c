@@ -27,7 +27,6 @@ void connection_close(connection *conn) {
     conn->fd = -1;
 }
 
-/* Prepares the connection for the next request on the same socket. */
 static void connection_reset(connection *conn) {
     http_response_free(&conn->out);
     http_parser_init(&conn->parser);
@@ -41,7 +40,7 @@ int connection_on_readable(connection *conn) {
     ssize_t n = read(conn->fd, buf, sizeof(buf));
 
     if (n == -1) {
-        /* EAGAIN is not an error: it means "come back when poll says so". */
+
         if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
             return 0;
         }
@@ -50,7 +49,7 @@ int connection_on_readable(connection *conn) {
     }
 
     if (n == 0) {
-        return -1;   /* client closed */
+        return -1;
     }
 
     conn->last_activity = time(NULL);
@@ -62,8 +61,6 @@ int connection_on_readable(connection *conn) {
         return 0;
     }
 
-    /* The request decides whether the connection survives. CONFLICT and any
-     * error force a close. */
     conn->keep_alive =
         (parsed == HTTP_PARSE_OK)
             ? http_request_wants_keep_alive(http_parser_request(&conn->parser))
@@ -89,7 +86,7 @@ int connection_on_writable(connection *conn) {
 
         if (n == -1) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                return 0;   /* the rest goes out on the next POLLOUT */
+                return 0;
             }
             if (errno == EINTR) {
                 continue;

@@ -4,7 +4,7 @@
 #include "http_parser.h"
 
 void test_http_parser(void) {
-    /* ---- the minimal request line ---- */
+
     TEST("parses a minimal GET request line");
     {
         const char *raw = "GET / HTTP/1.1\r\nHost: x\r\n\r\n";
@@ -17,7 +17,6 @@ void test_http_parser(void) {
         CHECK_STR(http_parser_request(&p)->version, "HTTP/1.1");
     }
 
-    /* ---- split at EVERY possible position ---- */
     TEST("same result at every possible split");
     {
         const char *raw = "GET /index.html HTTP/1.1\r\nHost: exemplo\r\n\r\n";
@@ -39,7 +38,6 @@ void test_http_parser(void) {
         }
     }
 
-    /* ---- one byte at a time ---- */
     TEST("fed one byte at a time");
     {
         const char *raw = "POST /x HTTP/1.0\r\n\r\n";
@@ -57,7 +55,6 @@ void test_http_parser(void) {
         CHECK_STR(http_parser_request(&p)->method, "POST");
     }
 
-    /* ---- not hardcoded to GET / ---- */
     TEST("any method and any target");
     {
         const char *raw = "DELETE /a/b/c?q=1&r=2 HTTP/1.1\r\nHost: x\r\n\r\n";
@@ -69,7 +66,6 @@ void test_http_parser(void) {
         CHECK_STR(http_parser_request(&p)->target, "/a/b/c?q=1&r=2");
     }
 
-    /* ---- headers, with OWS around the value ---- */
     TEST("headers with optional whitespace");
     {
         const char *raw =
@@ -92,7 +88,6 @@ void test_http_parser(void) {
         CHECK(http_request_find_field(req, "Ausente") == NULL);
     }
 
-    /* ---- limits, without overrunning a buffer ---- */
     TEST("size limits are enforced");
     {
         static char raw[8192];
@@ -120,16 +115,15 @@ void test_http_parser(void) {
         CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_TOO_LARGE);
     }
 
-    /* ---- malformed input ---- */
     TEST("malformed input yields BAD_REQUEST");
     {
         const char *ruins[] = {
-            "GET  / HTTP/1.1\r\n\r\n",      /* two spaces */
-            "GET / HTTP/1.1\n\r\n",         /* LF without CR */
-            "GET /\r\n\r\n",                /* missing version */
-            "GET / HTTP/x.y\r\n\r\n",       /* invalid version */
-            "GET / HTTP/1.1\r\n: v\r\n\r\n",/* empty header name */
-            " GET / HTTP/1.1\r\n\r\n",      /* empty method */
+            "GET  / HTTP/1.1\r\n\r\n",
+            "GET / HTTP/1.1\n\r\n",
+            "GET /\r\n\r\n",
+            "GET / HTTP/x.y\r\n\r\n",
+            "GET / HTTP/1.1\r\n: v\r\n\r\n",
+            " GET / HTTP/1.1\r\n\r\n",
         };
         size_t i = 0;
 
@@ -142,16 +136,14 @@ void test_http_parser(void) {
         }
     }
 
-    /* ---- incomplete is not an error ---- */
     TEST("INCOMPLETE is not an error");
     {
-        const char *raw = "GET / HTTP/1.1\r\n";   /* no blank line */
+        const char *raw = "GET / HTTP/1.1\r\n";
         http_parser p;
         http_parser_init(&p);
         CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_INCOMPLETE);
     }
 
-    /* ---- the result is stable once finished ---- */
     TEST("result is stable after OK");
     {
         const char *raw = "GET / HTTP/1.1\r\nHost: x\r\n\r\n";
@@ -161,7 +153,6 @@ void test_http_parser(void) {
         CHECK_INT(http_parser_feed(&p, "lixo", 4), HTTP_PARSE_OK);
     }
 
-    /* ---- two parsers never mix ---- */
     TEST("state is per parser, not global");
     {
         http_parser a, b;
@@ -174,8 +165,6 @@ void test_http_parser(void) {
         CHECK_STR(http_parser_request(&a)->target, "/a");
         CHECK_STR(http_parser_request(&b)->target, "/b");
     }
-
-    /* ---------- RFC 9112 conformance ---------- */
 
     TEST("Host is required on HTTP/1.1 (RFC 9112 3.2)");
     {
@@ -190,7 +179,7 @@ void test_http_parser(void) {
         http_parser_init(&p);
         CHECK_INT(http_parser_feed(&p, dois, strlen(dois)), HTTP_PARSE_BAD_REQUEST);
 
-        http_parser_init(&p);   /* HTTP/1.0 does not require Host */
+        http_parser_init(&p);
         CHECK_INT(http_parser_feed(&p, um_zero, strlen(um_zero)), HTTP_PARSE_OK);
     }
 
@@ -206,7 +195,7 @@ void test_http_parser(void) {
         CHECK_INT(http_parser_request(&p)->body_kind, HTTP_BODY_LENGTH);
     }
     {
-        /* an incomplete body stays INCOMPLETE */
+
         const char *raw =
             "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nabc";
         http_parser p;
@@ -214,7 +203,7 @@ void test_http_parser(void) {
         CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_INCOMPLETE);
     }
     {
-        /* non-numeric Content-Length */
+
         const char *raw =
             "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: abc\r\n\r\n";
         http_parser p;
@@ -237,7 +226,7 @@ void test_http_parser(void) {
         CHECK_INT(http_parser_request(&p)->body_kind, HTTP_BODY_CHUNKED);
     }
     {
-        /* chunked, byte by byte, gives the same result */
+
         const char *raw =
             "POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n"
             "3\r\nabc\r\n0\r\n\r\n";

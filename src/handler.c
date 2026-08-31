@@ -8,13 +8,10 @@
 #define LOG_LABEL "handler"
 #define WWW_ROOT "www"
 
-/* Methods this server implements. */
 static int method_is_supported(const char *method) {
     return strcmp(method, "GET") == 0 || strcmp(method, "HEAD") == 0;
 }
 
-/* Methods HTTP defines, whether or not this server serves them. The
- * distinction separates 405 (exists, not allowed) from 501 (unimplemented). */
 static int method_is_known(const char *method) {
     static const char *known[] = {
         "GET", "HEAD", "POST", "PUT", "DELETE",
@@ -44,7 +41,6 @@ static int status_for_file_result(file_result result) {
     return 500;
 }
 
-/* Error body: the reason phrase itself, as plain text. Errors always close. */
 int handler_error(http_response *res, int status) {
     const char *reason = http_status_reason(status);
 
@@ -52,8 +48,6 @@ int handler_error(http_response *res, int status) {
                                reason, strlen(reason), 0);
 }
 
-/* GET and HEAD share the SAME path: that is what guarantees identical
- * headers, Content-Length included (RFC 9110 9.3.2). HEAD just sends less. */
 static int build_ok(const http_request *req, int keep_alive, http_response *res) {
     if (!method_is_known(req->method)) {
         return handler_error(res, 501);
@@ -92,7 +86,7 @@ int handler_reply(const http_parser *parser, http_parse_result parsed,
         return handler_error(res, 431);
 
     default:
-        /* Includes CONFLICT: answer 400 and let the caller close (RFC 9112 6.1). */
+
         return handler_error(res, 400);
     }
 }

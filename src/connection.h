@@ -1,7 +1,3 @@
-/* Per-connection state: parser, output buffer and lifecycle.
- *
- * Each connection embeds its own parser — no allocation per connection,
- * and two connections never share state. */
 #pragma once
 
 #include <time.h>
@@ -28,6 +24,5 @@ typedef struct {
 void connection_open(connection *conn, int fd);
 void connection_close(connection *conn);
 
-/* Return 0 to keep the connection alive, -1 to close it. */
 int connection_on_readable(connection *conn);
 int connection_on_writable(connection *conn);

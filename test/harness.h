@@ -1,7 +1,3 @@
-/* Minimal assertions for the test suite.
- *
- * Each CHECK reports the failure with file and line and KEEPS GOING: one
- * run shows everything that broke, not just the first thing. */
 #pragma once
 
 #include <stdio.h>

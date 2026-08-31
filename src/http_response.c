@@ -5,7 +5,6 @@
 #include <string.h>
 #include <time.h>
 
-/* Date in the IMF-fixdate format required by RFC 9110 6.6.1. */
 static void format_http_date(char *out, size_t out_size) {
     time_t now = time(NULL);
     struct tm gmt;

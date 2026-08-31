@@ -1,5 +1,3 @@
-/* The state machine: request line, headers and body, one byte at a time. */
-
 #include "http_parser.h"
 
 #include <string.h>
@@ -16,8 +14,8 @@ enum {
     S_VALUE,
     S_FIELD_LF,
     S_END_LF,
-    S_BODY,              /* Content-Length: consume N bytes */
-    S_CHUNK_SIZE,        /* chunked: size in hexadecimal */
+    S_BODY,
+    S_CHUNK_SIZE,
     S_CHUNK_SIZE_LF,
     S_CHUNK_DATA,
     S_CHUNK_DATA_CR,
@@ -44,7 +42,6 @@ static int hex_value(char c) {
     return -1;
 }
 
-/* Characters valid in a method and in a header name (RFC 9110 5.6.2). */
 static int is_token_char(char c) {
     if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
         (c >= '0' && c <= '9')) {
@@ -56,7 +53,6 @@ static int is_token_char(char c) {
            c == '^' || c == '_' || c == '`' || c == '|' || c == '~';
 }
 
-/* Appends a byte to the field being built. Returns -1 if it did not fit. */
 static int push(char *dst, size_t cap, size_t *fill, char c) {
     if (*fill + 1 >= cap) {
         return -1;
@@ -68,7 +64,6 @@ static int push(char *dst, size_t cap, size_t *fill, char c) {
     return 0;
 }
 
-/* HTTP-version = "HTTP/" DIGIT "." DIGIT  (RFC 9112 2.3) */
 static int is_valid_version(const char *v) {
     return v[0] == 'H' && v[1] == 'T' && v[2] == 'T' && v[3] == 'P' &&
            v[4] == '/' && v[5] >= '0' && v[5] <= '9' &&
@@ -79,7 +74,6 @@ static http_field *current_field(http_parser *p) {
     return &p->request.fields[p->request.field_count];
 }
 
-/* Strips trailing OWS from the value (RFC 9112 5). */
 static void trim_trailing_ws(char *value, size_t *len) {
     while (*len > 0 && (value[*len - 1] == ' ' || value[*len - 1] == '\t')) {
         *len -= 1;
@@ -87,7 +81,6 @@ static void trim_trailing_ws(char *value, size_t *len) {
     }
 }
 
-/* Host is mandatory in HTTP/1.1, exactly once (RFC 9112 3.2). */
 static int host_is_valid(const http_request *req) {
     size_t seen = 0;
     size_t i = 0;
@@ -100,13 +93,12 @@ static int host_is_valid(const http_request *req) {
     }
 
     if (strcmp(req->version, "HTTP/1.1") != 0) {
-        return 1;   /* HTTP/1.0 does not require it */
+        return 1;
     }
 
     return seen == 1;
 }
 
-/* Picks the body framing (RFC 9112 6.3) once the headers are in. */
 static void begin_body(http_parser *p) {
     const http_request *req = &p->request;
 
@@ -118,9 +110,6 @@ static void begin_body(http_parser *p) {
     const char *length = http_request_find_field(req, "Content-Length");
     const char *encoding = http_request_find_field(req, "Transfer-Encoding");
 
-    /* Both together are a request smuggling vector: a proxy in front may
-     * frame the message differently than the server behind. The RFC
-     * requires closing the connection. */
     if (length != NULL && encoding != NULL) {
         p->state = S_CONFLICT;
         return;
@@ -182,7 +171,6 @@ void http_parser_init(http_parser *p) {
     p->request.field_count = 0;
 }
 
-/* Consumes one byte and advances the state. */
 static void step(http_parser *p, char c) {
     switch (p->state) {
 
@@ -340,7 +328,7 @@ static void step(http_parser *p, char c) {
             return;
         }
         if (c == ';') {
-            return;   /* chunk extension: ignored up to the CR */
+            return;
         }
         {
             int digit = hex_value(c);
@@ -401,7 +389,7 @@ static void step(http_parser *p, char c) {
         return;
 
     default:
-        return;   /* DONE or error: consume nothing further */
+        return;
     }
 }
 
@@ -445,7 +433,7 @@ int http_request_wants_keep_alive(const http_request *req) {
         return connection != NULL && strcasecmp(connection, "keep-alive") == 0;
     }
 
-    return 1;   /* HTTP/1.1 is persistent by default */
+    return 1;
 }
 
 const http_request *http_parser_request(const http_parser *p) {

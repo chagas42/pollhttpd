@@ -1,5 +1,3 @@
-/* Listening socket and the poll() event loop. */
-
 #include "server.h"
 
 #include <fcntl.h>
@@ -19,12 +17,10 @@
 #define LISTEN_BACKLOG 128
 #define MAX_CONNECTIONS  64
 #define POLL_TIMEOUT_MS 1000
-/* An idle keep-alive connection may wait longer than a half-sent request:
- * the latter is the slowloris pattern. */
+
 #define IDLE_TIMEOUT_S     15
 #define REQUEST_TIMEOUT_S  10
 
-/* Creates a socket bound to this address. Returns the fd, or -1. */
 static int bind_to_address(const struct addrinfo *addr) {
     int fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
     if (fd == -1) {
@@ -39,7 +35,6 @@ static int bind_to_address(const struct addrinfo *addr) {
         return -1;
     }
 
-    /* An IPv6 socket with V6ONLY off also accepts IPv4 clients. */
     if (addr->ai_family == AF_INET6) {
         int v6only = 0;
         if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY,
@@ -59,7 +54,6 @@ static int bind_to_address(const struct addrinfo *addr) {
     return fd;
 }
 
-/* Binds the first candidate of this family. Returns the fd, or -1. */
 static int bind_first_of_family(struct addrinfo *candidates, int family) {
     struct addrinfo *addr = candidates;
     int fd = -1;
@@ -74,7 +68,6 @@ static int bind_first_of_family(struct addrinfo *candidates, int family) {
     return fd;
 }
 
-/* Returns a socket listening on `port`, or -1 if no address worked. */
 static int listen_socket_open(const char *port) {
     struct addrinfo hints = {
         .ai_family   = AF_UNSPEC,
@@ -89,8 +82,6 @@ static int listen_socket_open(const char *port) {
         return -1;
     }
 
-    /* IPv6 first: one socket covers both families. IPv4 is the fallback
-     * for hosts without IPv6. */
     int listen_fd = bind_first_of_family(candidates, AF_INET6);
     if (listen_fd == -1) {
         listen_fd = bind_first_of_family(candidates, AF_INET);
@@ -148,14 +139,12 @@ static void accept_new(int listen_fd, connection *conns, size_t *count) {
     *count += 1;
 }
 
-/* Removes a connection by swapping in the last one. */
 static void drop(connection *conns, size_t *count, size_t index) {
     connection_close(&conns[index]);
     conns[index] = conns[*count - 1];
     *count -= 1;
 }
 
-/* Drops stalled connections. A half-sent request gets a 408 first. */
 static void expire_idle(connection *conns, size_t *count) {
     time_t now = time(NULL);
     size_t i = *count;
@@ -225,8 +214,6 @@ int server_run(const char *port) {
             break;
         }
 
-        /* Backwards, so removing a connection does not shift the ones
-         * still to be examined. */
         i = count;
         while (i > 0) {
             i--;

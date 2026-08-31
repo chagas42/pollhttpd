@@ -18,8 +18,6 @@ static int hex_value(char c) {
     return -1;
 }
 
-/* Decodes %XX. Must run BEFORE normalization: "%2e%2e" only becomes ".."
- * once decoded. Rejects %00 and control bytes. */
 static int percent_decode(const char *src, char *out, size_t cap) {
     size_t len = 0;
 
@@ -57,9 +55,6 @@ static int percent_decode(const char *src, char *out, size_t cap) {
     return 0;
 }
 
-/* Resolves "." and ".." lexically. Returns -1 if the path climbs above the
- * root. This layer covers the missing-file case, where realpath fails with
- * ENOENT and leaves nothing to compare against. */
 static int normalize_path(const char *path, char *out, size_t cap) {
     size_t len = 0;
     const char *p = path;
@@ -86,13 +81,13 @@ static int normalize_path(const char *path, char *out, size_t cap) {
 
         if (segment_len == 2 && segment[0] == '.' && segment[1] == '.') {
             if (len == 0) {
-                return -1;   /* escapou da raiz */
+                return -1;
             }
             while (len > 0 && out[len - 1] != '/') {
                 len -= 1;
             }
             if (len > 0) {
-                len -= 1;    /* remove a barra */
+                len -= 1;
             }
             out[len] = '\0';
             continue;
@@ -140,7 +135,6 @@ const char *file_media_type(const char *path) {
     return "application/octet-stream";
 }
 
-/* Reads the whole file into memory. */
 static file_result read_whole_file(const char *path, size_t size, file_content *out) {
     int fd = open(path, O_RDONLY);
     if (fd == -1) {
@@ -189,7 +183,6 @@ file_result file_load(const char *root, const char *target, file_content *out) {
     out->len = 0;
     out->media_type = NULL;
 
-    /* 1. only the path matters; the query string names no file. */
     char without_query[PATH_MAX];
     size_t path_len = strcspn(target, "?#");
     if (path_len + 1 > sizeof(without_query)) {
@@ -198,13 +191,11 @@ file_result file_load(const char *root, const char *target, file_content *out) {
     memcpy(without_query, target, path_len);
     without_query[path_len] = '\0';
 
-    /* 2. decode before any analysis. */
     char decoded[PATH_MAX];
     if (percent_decode(without_query, decoded, sizeof(decoded)) == -1) {
         return FILE_BAD_TARGET;
     }
 
-    /* 3. resolve "." and ".." lexically. */
     char normalized[PATH_MAX];
     if (normalize_path(decoded, normalized, sizeof(normalized)) == -1) {
         return FILE_FORBIDDEN;
@@ -219,14 +210,11 @@ file_result file_load(const char *root, const char *target, file_content *out) {
     char candidate[PATH_MAX * 2];
     snprintf(candidate, sizeof(candidate), "%s%s", root_real, normalized);
 
-    /* 4. resolve for real — and only then check the scope. */
     char resolved[PATH_MAX];
     if (realpath(candidate, resolved) == NULL) {
         return FILE_NOT_FOUND;
     }
 
-    /* 5. the real path must sit under the real root. This is the layer
-     *    that catches a symlink pointing outside. */
     size_t root_len = strlen(root_real);
     if (strncmp(resolved, root_real, root_len) != 0 ||
         (resolved[root_len] != '/' && resolved[root_len] != '\0')) {
@@ -239,7 +227,6 @@ file_result file_load(const char *root, const char *target, file_content *out) {
         return FILE_NOT_FOUND;
     }
 
-    /* Directory: try index.html inside it. */
     if (S_ISDIR(info.st_mode)) {
         char index[PATH_MAX * 2];
         snprintf(index, sizeof(index), "%s/index.html", resolved);
