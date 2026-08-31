@@ -1,34 +1,43 @@
-# Makefile — http-server-c
-# Build voltado para depuração: warnings agressivos + símbolos de debug.
+# pollhttpd — build tuned for debugging: aggressive warnings, debug symbols.
 
 CC      := cc
-# -Wall -Wextra: warnings agressivos | -g: símbolos para gdb/valgrind
-# -std=c11: padrão estável | -D_POSIX_C_SOURCE: expõe getaddrinfo, etc.
-CFLAGS  := -Wall -Wextra -g -std=c11 -D_POSIX_C_SOURCE=200809L
+# -D_DEFAULT_SOURCE exposes realpath, which _POSIX_C_SOURCE alone hides.
+CFLAGS  := -Wall -Wextra -g -std=c11 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
 LDFLAGS :=
 
-TARGET  := http-server
+TARGET  := pollhttpd
 SRCDIR  := src
 SRCS    := $(wildcard $(SRCDIR)/*.c)
 OBJS    := $(SRCS:.c=.o)
 
-.PHONY: all clean memcheck run
+# Tests link the suites against every module except main.c, since the
+# runner brings its own main.
+TESTDIR   := test
+TEST_BIN  := $(TESTDIR)/run
+TEST_SRCS := $(wildcard $(TESTDIR)/*.c)
+LIB_SRCS  := $(filter-out $(SRCDIR)/main.c, $(SRCS))
+
+.PHONY: all clean memcheck run test
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
-# Regra implícita para cada objeto; recompila se o header mudar.
+# One rule per object file.
 $(SRCDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 run: $(TARGET)
 	./$(TARGET)
 
-# Depuração de memória com valgrind (Milestone-by-milestone).
-# --leak-check=full: detalha cada leak | --show-leak-kinds=all: todos os tipos
-# --track-origins=yes: origem de valores não inicializados | --error-exitcode=1
+test: $(TEST_BIN)
+	./$(TEST_BIN)
+
+$(TEST_BIN): $(TEST_SRCS) $(LIB_SRCS) $(wildcard $(SRCDIR)/*.h) $(TESTDIR)/harness.h
+	$(CC) $(CFLAGS) -I$(SRCDIR) -o $@ $(TEST_SRCS) $(LIB_SRCS) $(LDFLAGS)
+
+# Memory checking under valgrind.
 memcheck: $(TARGET)
 	valgrind --leak-check=full \
 	         --show-leak-kinds=all \
@@ -37,4 +46,4 @@ memcheck: $(TARGET)
 	         ./$(TARGET)
 
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET) $(TEST_BIN)

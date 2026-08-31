@@ -1,7 +1,7 @@
 # Build artifacts
 *.o
 *.out
-http-server
+pollhttpd
 
 # Debug / profiling
 vgcore.*
@@ -13,3 +13,6 @@ core
 .idea/
 *.swp
 .DS_Store
+
+# Test binary
+test/run
