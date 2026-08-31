@@ -1,80 +1,103 @@
-# http-server-c
+# pollhttpd
 
-Servidor HTTP/1.1 implementado do zero em C, em conformidade estrita com as especificações oficiais. Projeto de estudo para consolidar fundamentos de **Systems Programming**: sockets POSIX, parsing byte a byte, I/O de disco e multiplexação de I/O.
+A single-process HTTP/1.1 server written from scratch in C, built on `poll()`.
 
-> **Filosofia do projeto:** não se trata de "fazer funcionar no curl". Trata-se de entender *por que* o protocolo é como é. Cada decisão de implementação deve ser rastreável a uma cláusula de RFC.
-
-## Conformidade obrigatória
-
-Toda mensagem produzida e consumida pelo servidor deve respeitar:
-
-- **[RFC 9110 — HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110.html)**: significado de métodos, códigos de status, headers de representação (semântica).
-- **[RFC 9112 — HTTP/1.1 Message Syntax and Routing](https://www.rfc-editor.org/rfc/rfc9112.html)**: como os bytes são organizados na rede (sintaxe).
-
-A distinção é central: **9112 é a gramática (sintaxe), 9110 é o vocabulário (semântica).** Você vai consultar as duas o tempo todo.
-
-### Por que seguir a RFC muda o projeto
-
-- **Gramática ABNF.** As RFCs definem cada construção em [ABNF (RFC 5234)](https://www.rfc-editor.org/rfc/rfc5234.html). O `CRLF` (`\r\n`) obrigatório ao fim de cada linha não é detalhe estético: um navegador rejeita respostas que não o respeitam.
-- **Tratamento de erro.** A RFC 9112 especifica como reagir a requisições malformadas (ex.: `400 Bad Request`). Isso é fronteira de segurança — request smuggling nasce de parsers permissivos.
-- **Semântica de métodos.** A RFC 9110 explica a diferença real entre `GET` e `HEAD` (o `HEAD` retorna os mesmos headers do `GET`, mas sem corpo) e por que ambos são obrigatórios.
-
-## Roteiro de aprendizado
-
-As 5 milestones vivem como **issues no GitHub** (não neste README). Cada uma traz objetivo, o que entender, critério de pronto e referências (Beej PT-BR, RFC 9110/9112, man7.org). Acompanhe e marque o progresso por lá:
-
-| # | Milestone | Foco |
-|---|-----------|------|
-| [#1](../../issues/1) | O Aperto de Mão TCP | socket passivo IPv4/IPv6 via `getaddrinfo` |
-| [#2](../../issues/2) | Resposta Estática RFC-Compliant | `200 OK` com status-line + headers + `CRLF` |
-| [#3](../../issues/3) | Parser de Requisição com FSM | request-line + headers byte a byte; `400` em malformado |
-| [#4](../../issues/4) | Sistema de Arquivos e Semântica | servir `www/`, `Content-Type`/`Length`, `GET`/`HEAD`, `404` |
-| [#5](../../issues/5) | Concorrência de Sistemas | event loop `poll()` não-bloqueante, multi-cliente |
-
-> Veja todas em **[Issues → label `milestone`](../../issues?q=is%3Aissue+label%3Amilestone)**.
-
-## Estrutura do repositório
+No frameworks, no dependencies — just POSIX sockets, a hand-written parser, and the
+standard library. Written to understand *why* the protocol is shaped the way it is,
+so every decision traces back to a clause in the specification.
 
 ```
-http-server-c/
-├── README.md   # este arquivo: visão geral + índice das milestones
-├── Makefile    # build com -Wall -Wextra -g + alvo de valgrind (make memcheck)
-├── .gitignore
-├── src/        # SUA implementação (vazio — você escreve do zero)
-├── www/        # raiz dos arquivos estáticos servidos
-│   └── index.html
-└── docs/       # suas anotações de estudo
+$ make && ./pollhttpd
+[server] listening on http://localhost:8080
 ```
 
-> `src/` está intencionalmente **vazio**. Este repo é um guia, não um esqueleto pronto: a implementação é sua. Sugestão de organização à medida que avança — `server.c` (M1), `response.c` (M2/M4), `http_parser.c` (M3), `files.c` (M4), `main.c`/event loop (M5) — mas a divisão fica a seu critério.
+## What it does
 
-## Build e execução
+- **Dual-stack listener.** A single socket bound to `::` with `IPV6_V6ONLY` disabled
+  accepts both IPv6 and IPv4 clients.
+- **Byte-at-a-time request parser.** A 24-state machine that survives arbitrary
+  fragmentation — the same request split at any position parses identically.
+- **Static file serving** from `www/`, with layered path traversal protection.
+- **Single-process concurrency** via a `poll()` event loop. A slow client cannot
+  stall a fast one.
+- **Persistent connections**, request body framing (`Content-Length` and `chunked`),
+  and the RFC 9112 requirements most hand-rolled servers miss.
+
+## Build and run
 
 ```bash
-make            # compila ./http-server a partir de src/*.c
-./http-server   # sobe o servidor (escolha a porta no seu código, ex.: 8080)
-make memcheck   # roda sob valgrind com checagem total de leaks
-make clean      # remove artefatos
+make            # build with -Wall -Wextra
+./pollhttpd   # listen on :8080, serving ./www
+make test       # run the test suite
+make memcheck   # run under valgrind
+make clean
 ```
 
-> O `make` só funciona depois que você criar seus primeiros `.c` em `src/`.
+Requires a C11 compiler and a POSIX system. Tested on Linux.
 
-Ferramentas de teste recomendadas: `curl -v`, `curl -I`, `nc` (netcat), `printf '...' | nc localhost 8080`, e o próprio navegador.
+## Architecture
 
-## Disciplina de engenharia (todas as milestones)
+```
+src/main.c            entry point; ignores SIGPIPE, delegates
+src/server.c          listening socket and the poll() event loop
+src/connection.c      per-connection state: parser, output buffer, lifecycle
+src/handler.c         request to response: methods, status codes
+src/http_parser.c     the state machine: request line, headers, body
+src/http_response.c   response serialization
+src/files.c           request target to safe path to content
+```
 
-- **Compile sempre com `-Wall -Wextra`** e trate warning como erro. Em C, warning ignorado vira bug de produção.
-- **Rode `make memcheck` (valgrind) em cada milestone.** Leaks e leituras inválidas se acumulam silenciosamente.
-- **Cheque o retorno de toda syscall** (`socket`, `bind`, `accept`, `read`, `write`...) com `perror`/`strerror(errno)`.
-- **Não confie em entrada da rede.** Todo byte vindo do cliente é hostil até prova em contrário.
-- **Um commit por avanço significativo**, no formato Conventional Commits (ex.: `feat(server): bind passive socket via getaddrinfo`).
+Each module exposes a handful of symbols; everything else is `static`. The parser
+never sees a file descriptor — it consumes bytes, which is what makes it testable
+without a socket.
 
-## Glossário rápido
+## Conformance
 
-| Termo | Significado |
-|-------|-------------|
-| ABNF | Augmented BNF (RFC 5234): notação formal da gramática das RFCs |
-| CRLF | `\r\n` — terminador de linha obrigatório em HTTP |
-| OWS | Optional WhiteSpace ao redor de valores de header |
-| FSM | Finite State Machine — base do parser da Milestone 3 |
-| Socket passivo | Socket em modo escuta, criado no servidor para aceitar conexões |
+| Behavior | Clause |
+|---|---|
+| `Host` required, exactly once, on HTTP/1.1 | RFC 9112 §3.2 |
+| Body framing: `Content-Length` vs `chunked` | RFC 9112 §6.3 |
+| Chunked transfer decoding | RFC 9112 §7.1 |
+| `Content-Length` + `Transfer-Encoding` together → close the connection | RFC 9112 §6.1 |
+| Persistent connections by default | RFC 9112 §9.3 |
+| Honor `Connection: close` | RFC 9112 §9.6 |
+| `Date` header in IMF-fixdate format | RFC 9110 §6.6.1 |
+| `HEAD` returns the same headers as `GET`, without a body | RFC 9110 §9.3.2 |
+
+Status codes: `200`, `400`, `403`, `404`, `405`, `408`, `413`, `431`, `501`.
+
+## Two design notes
+
+**Path traversal takes two layers, because neither catches everything.**
+`realpath()` fails with `ENOENT` on a missing file, so it cannot distinguish a
+legitimate `404` from an escape attempt — which is why the target is normalized
+lexically first. But lexical normalization cannot see through a symlink pointing
+outside the root — which is why `realpath()` runs after, and the result is checked
+against the resolved root. Percent-decoding happens before both, since `%2e%2e`
+only becomes `..` once decoded.
+
+**Incomplete is not an error.** `read()` returns whatever bytes happened to arrive,
+cut at a position the network chose. The parser's `INCOMPLETE` result is the normal
+state of a machine fed in fragments; treating it as failure defeats the purpose.
+The test suite feeds the same request split at every possible offset and asserts an
+identical result.
+
+## Testing
+
+```bash
+make test
+```
+
+A dependency-free harness in `test/harness.h`. Failures report file and line and the
+run continues, so one pass shows everything that broke.
+
+## References
+
+- [RFC 9110 — HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110.html)
+- [RFC 9112 — HTTP/1.1 Message Syntax and Routing](https://www.rfc-editor.org/rfc/rfc9112.html)
+- [Beej's Guide to Network Programming](https://beej.us/guide/bgnet/)
+
+## Status
+
+A learning project, not production software. It has no TLS, no HTTP/2, no access log,
+and no configuration file.
