@@ -175,6 +175,7 @@ static void expire_idle(connection *conns, size_t *count) {
 }
 
 int server_run(const char *port) {
+  //error validation
     int listen_fd = listen_socket_open(port);
     if (listen_fd == -1) {
         return -1;
@@ -186,22 +187,23 @@ int server_run(const char *port) {
         return -1;
     }
 
-    connection    conns[MAX_CONNECTIONS];
+    connection conns[MAX_CONNECTIONS];
     struct pollfd fds[MAX_CONNECTIONS + 1];
-    size_t        count = 0;
+    size_t count = 0;
 
     log_info("listening on http://localhost:%s", port);
 
+    //main loop
     while (1) {
         fds[0].fd = listen_fd;
         fds[0].events = POLLIN;
         fds[0].revents = 0;
 
         size_t i = 0;
+        //skiped this loops while count is 0
         while (i < count) {
             fds[i + 1].fd = conns[i].fd;
-            fds[i + 1].events =
-                (conns[i].state == CONN_READING) ? POLLIN : POLLOUT;
+            fds[i + 1].events = (conns[i].state == CONN_READING) ? POLLIN : POLLOUT;
             fds[i + 1].revents = 0;
             i++;
         }
@@ -216,6 +218,7 @@ int server_run(const char *port) {
 
         i = count;
         while (i > 0) {
+          //swap-remove for drop function
             i--;
 
             short revents = fds[i + 1].revents;
