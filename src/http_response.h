@@ -8,7 +8,8 @@ typedef struct {
     size_t headers_len;
 } http_response;
 
-int http_response_build(http_response *res, int status, const char *reason,
+// reason is derived from status, not passed: the two cannot disagree
+int http_response_build(http_response *res, int status,
                         const char *media_type, const char *body,
                         size_t body_len, int keep_alive);
 

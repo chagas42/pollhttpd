@@ -8,6 +8,7 @@ int checks_failed = 0;
 void test_http_parser(void);
 void test_files(void);
 void test_http_response(void);
+void test_server(void);
 
 int main(void) {
     printf("\nrunning tests");
@@ -15,6 +16,7 @@ int main(void) {
     test_http_parser();
     test_files();
     test_http_response();
+    test_server();
 
     printf("\n\n  %d checks, %d failed\n\n",
            checks_run, checks_failed);

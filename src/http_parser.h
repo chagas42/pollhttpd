@@ -39,6 +39,14 @@ typedef struct {
     size_t         body_len;
 } http_request;
 
+// what one feed() did: how far it got, and how many bytes it ate. the byte
+// count is what makes pipelining possible -- without it the caller cannot
+// know where the next request begins.
+typedef struct {
+    http_parse_result status;
+    size_t            consumed;
+} http_feed_result;
+
 typedef struct {
 
     int          state;
@@ -49,12 +57,10 @@ typedef struct {
 
 void http_parser_init(http_parser *p);
 
-http_parse_result http_parser_feed(http_parser *p, const char *buf, size_t len);
+http_feed_result http_parser_feed(http_parser *p, const char *buf, size_t len);
 
 const http_request *http_parser_request(const http_parser *p);
 
 const char *http_request_find_field(const http_request *req, const char *name);
-
-int http_parser_started(const http_parser *p);
 
 int http_request_wants_keep_alive(const http_request *req);

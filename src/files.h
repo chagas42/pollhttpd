@@ -10,6 +10,7 @@ typedef enum {
     FILE_FORBIDDEN,
     FILE_TOO_LARGE,
     FILE_BAD_TARGET,
+    FILE_ERROR,          // ours, not the client's: answer 500, not 404
 } file_result;
 
 typedef struct {
@@ -21,5 +22,3 @@ typedef struct {
 file_result file_load(const char *root, const char *target, file_content *out);
 
 void file_content_free(file_content *content);
-
-const char *file_media_type(const char *path);

@@ -6,7 +6,6 @@
 #include "log.h"
 
 #define LOG_LABEL "handler"
-#define WWW_ROOT "www"
 
 static int method_is_supported(const char *method) {
     return strcmp(method, "GET") == 0 || strcmp(method, "HEAD") == 0;
@@ -36,6 +35,7 @@ static int status_for_file_result(file_result result) {
     case FILE_FORBIDDEN:  return 403;
     case FILE_TOO_LARGE:  return 413;
     case FILE_BAD_TARGET: return 400;
+    case FILE_ERROR:      return 500;
     }
 
     return 500;
@@ -44,11 +44,12 @@ static int status_for_file_result(file_result result) {
 int handler_error(http_response *res, int status) {
     const char *reason = http_status_reason(status);
 
-    return http_response_build(res, status, reason, "text/plain; charset=utf-8",
+    return http_response_build(res, status, "text/plain; charset=utf-8",
                                reason, strlen(reason), 0);
 }
 
-static int build_ok(const http_request *req, int keep_alive, http_response *res) {
+static int build_ok(const http_request *req, int keep_alive,
+                    const char *root, http_response *res) {
     if (!method_is_known(req->method)) {
         return handler_error(res, 501);
     }
@@ -57,36 +58,43 @@ static int build_ok(const http_request *req, int keep_alive, http_response *res)
     }
 
     file_content content;
-    file_result loaded = file_load(WWW_ROOT, req->target, &content);
+    file_result loaded = file_load(root, req->target, &content);
 
     if (loaded != FILE_OK) {
         return handler_error(res, status_for_file_result(loaded));
     }
 
-    int rc = http_response_build(res, 200, http_status_reason(200),
-                                 content.media_type, content.data,
-                                 content.len, keep_alive);
+    int rc = http_response_build(res, 200, content.media_type,
+                                 content.data, content.len, keep_alive);
     file_content_free(&content);
     return rc;
 }
 
-int handler_reply(const http_parser *parser, http_parse_result parsed,
-                  int keep_alive, http_response *res, int *head_only) {
-    const http_request *req = http_parser_request(parser);
-
-    *head_only = 0;
+handler_result handler_reply(const http_request *req, http_parse_result parsed,
+                             int keep_alive, const char *root,
+                             http_response *res) {
+    handler_result out = { 0, 0 };
+    int head_only = 0;
 
     switch (parsed) {
     case HTTP_PARSE_OK:
-        *head_only = (strcmp(req->method, "HEAD") == 0);
+        head_only = (strcmp(req->method, "HEAD") == 0);
         log_info("%s %s", req->method, req->target);
-        return build_ok(req, keep_alive, res);
+        out.ok = build_ok(req, keep_alive, root, res);
+        break;
 
     case HTTP_PARSE_TOO_LARGE:
-        return handler_error(res, 431);
+        out.ok = handler_error(res, 431);
+        break;
 
     default:
-
-        return handler_error(res, 400);
+        out.ok = handler_error(res, 400);
+        break;
     }
+
+    if (out.ok == 0) {
+        out.to_send = head_only ? res->headers_len : res->len;
+    }
+
+    return out;
 }

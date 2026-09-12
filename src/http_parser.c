@@ -393,7 +393,7 @@ static void step(http_parser *p, char c) {
     }
 }
 
-http_parse_result http_parser_feed(http_parser *p, const char *buf, size_t len) {
+http_feed_result http_parser_feed(http_parser *p, const char *buf, size_t len) {
     size_t i = 0;
 
     while (i < len && p->state != S_DONE && p->state != S_BAD_REQUEST &&
@@ -402,24 +402,19 @@ http_parse_result http_parser_feed(http_parser *p, const char *buf, size_t len) 
         i++;
     }
 
+    http_feed_result result = { HTTP_PARSE_INCOMPLETE, i };
+
     if (p->state == S_DONE) {
-        return HTTP_PARSE_OK;
-    }
-    if (p->state == S_BAD_REQUEST) {
-        return HTTP_PARSE_BAD_REQUEST;
-    }
-    if (p->state == S_TOO_LARGE) {
-        return HTTP_PARSE_TOO_LARGE;
-    }
-    if (p->state == S_CONFLICT) {
-        return HTTP_PARSE_CONFLICT;
+        result.status = HTTP_PARSE_OK;
+    } else if (p->state == S_BAD_REQUEST) {
+        result.status = HTTP_PARSE_BAD_REQUEST;
+    } else if (p->state == S_TOO_LARGE) {
+        result.status = HTTP_PARSE_TOO_LARGE;
+    } else if (p->state == S_CONFLICT) {
+        result.status = HTTP_PARSE_CONFLICT;
     }
 
-    return HTTP_PARSE_INCOMPLETE;
-}
-
-int http_parser_started(const http_parser *p) {
-    return !(p->state == S_METHOD && p->fill == 0);
+    return result;
 }
 
 int http_request_wants_keep_alive(const http_request *req) {

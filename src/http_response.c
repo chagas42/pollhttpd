@@ -32,12 +32,13 @@ const char *http_status_reason(int status) {
 
 int http_response_build(
     http_response *res,
-    int status, 
-    const char *reason,
+    int status,
     const char *media_type, 
     const char *body,
     size_t body_len, int keep_alive
 ) {
+    const char *reason = http_status_reason(status);
+
     char date[64];
     format_http_date(date, sizeof(date));
 
