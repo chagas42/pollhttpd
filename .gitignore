@@ -16,3 +16,7 @@ core
 
 # Test binary
 test/run
+
+# saída gerada pelo -MMD e pelo alvo asan
+*.d
+test/run-asan
