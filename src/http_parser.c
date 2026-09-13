@@ -393,47 +393,47 @@ static void step(http_parser *p, char c) {
     }
 }
 
-http_parse_result http_parser_feed(http_parser *p, const char *buf, size_t len) {
+http_feed_result http_parser_feed(http_parser *parser_pointer, const char *buf, size_t len) {
     size_t i = 0;
 
-    while (i < len && p->state != S_DONE && p->state != S_BAD_REQUEST &&
-           p->state != S_TOO_LARGE && p->state != S_CONFLICT) {
-        step(p, buf[i]);
+    while (
+      i < len &&
+      parser_pointer->state != S_DONE &&
+      parser_pointer->state != S_BAD_REQUEST &&
+      parser_pointer->state != S_TOO_LARGE &&
+      parser_pointer->state != S_CONFLICT
+    ) {
+          step(parser_pointer, buf[i]);
         i++;
     }
 
-    if (p->state == S_DONE) {
-        return HTTP_PARSE_OK;
-    }
-    if (p->state == S_BAD_REQUEST) {
-        return HTTP_PARSE_BAD_REQUEST;
-    }
-    if (p->state == S_TOO_LARGE) {
-        return HTTP_PARSE_TOO_LARGE;
-    }
-    if (p->state == S_CONFLICT) {
-        return HTTP_PARSE_CONFLICT;
+    http_feed_result result = { HTTP_PARSE_INCOMPLETE, i };
+
+    if (parser_pointer->state == S_DONE) {
+        result.status = HTTP_PARSE_OK;
+    } else if (parser_pointer->state == S_BAD_REQUEST) {
+        result.status = HTTP_PARSE_BAD_REQUEST;
+    } else if (parser_pointer->state == S_TOO_LARGE) {
+        result.status = HTTP_PARSE_TOO_LARGE;
+    } else if (parser_pointer->state == S_CONFLICT) {
+        result.status = HTTP_PARSE_CONFLICT;
     }
 
-    return HTTP_PARSE_INCOMPLETE;
+    return result;
 }
 
-int http_parser_started(const http_parser *p) {
-    return !(p->state == S_METHOD && p->fill == 0);
-}
-
-int http_request_wants_keep_alive(const http_request *req) {
+bool http_request_wants_keep_alive(const http_request *req) {
     const char *connection = http_request_find_field(req, "Connection");
 
     if (connection != NULL && strcasecmp(connection, "close") == 0) {
-        return 0;
+        return false;
     }
 
     if (strcmp(req->version, "HTTP/1.0") == 0) {
         return connection != NULL && strcasecmp(connection, "keep-alive") == 0;
     }
 
-    return 1;
+    return true;
 }
 
 const http_request *http_parser_request(const http_parser *p) {

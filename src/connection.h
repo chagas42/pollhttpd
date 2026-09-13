@@ -2,27 +2,26 @@
 
 #include <time.h>
 
-#include "http_parser.h"
-#include "http_response.h"
+#include "config.h"
 
-typedef enum {
-    CONN_READING,
-    CONN_WRITING,
-} conn_state;
+// two clocks inside: idle_since slides with activity and only counts
+// between messages; deadline is absolute and armed whenever a request or a
+// response is in flight, so a trickling client cannot renew it.
+typedef struct connection connection;
 
-typedef struct {
-    int           fd;
-    conn_state    state;
-    http_parser   parser;
-    http_response out;
-    size_t        sent;
-    size_t        to_send;
-    int           keep_alive;
-    time_t        last_activity;
-} connection;
-
-void connection_open(connection *conn, int fd);
+void  connection_open(
+  connection *conn,
+  int fd,
+  const server_config *cfg,
+  time_t now
+);
 void connection_close(connection *conn);
 
-int connection_on_readable(connection *conn);
-int connection_on_writable(connection *conn);
+int connection_fd(const connection *conn);
+
+// never both: POLLOUT with nothing to send makes poll() spin
+short connection_interest(const connection *conn);
+
+// both return 0 to keep the connection, -1 to drop it
+int connection_on_ready(connection *conn, short revents, time_t now);
+int connection_on_clock(connection *conn, time_t now);

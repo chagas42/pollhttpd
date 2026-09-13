@@ -30,6 +30,16 @@ static void given_tree(char *root_out, size_t cap) {
     fputs("SEGREDO", f);
     fclose(f);
 
+    snprintf(path, sizeof(path), "%s/www/dados.json", dir);
+    f = fopen(path, "w");
+    fputs("{}", f);
+    fclose(f);
+
+    snprintf(path, sizeof(path), "%s/www/LEIAME", dir);
+    f = fopen(path, "w");
+    fputs("sem extensao", f);
+    fclose(f);
+
     snprintf(path, sizeof(path), "%s/www/escape", dir);
     symlink("../segredo.txt", path);
 
@@ -97,13 +107,28 @@ void test_files(void) {
         CHECK_INT(file_load(root, "/a%00b", &content), FILE_BAD_TARGET);
     }
 
-    TEST("media type from extension");
+    TEST("media type comes back with the content");
     {
-        CHECK_STR(file_media_type("/a/b.html"), "text/html; charset=utf-8");
-        CHECK_STR(file_media_type("/a/b.css"),  "text/css; charset=utf-8");
-        CHECK_STR(file_media_type("/a/b.json"), "application/json");
-        CHECK_STR(file_media_type("/a/b.png"),  "image/png");
-        CHECK_STR(file_media_type("/sem-ponto"), "application/octet-stream");
+        CHECK_INT(file_load(root, "/index.html", &content), FILE_OK);
+        CHECK_STR(content.media_type, "text/html; charset=utf-8");
+        file_content_free(&content);
+
+        CHECK_INT(file_load(root, "/style.css", &content), FILE_OK);
+        CHECK_STR(content.media_type, "text/css; charset=utf-8");
+        file_content_free(&content);
+
+        CHECK_INT(file_load(root, "/dados.json", &content), FILE_OK);
+        CHECK_STR(content.media_type, "application/json");
+        file_content_free(&content);
+
+        CHECK_INT(file_load(root, "/LEIAME", &content), FILE_OK);
+        CHECK_STR(content.media_type, "application/octet-stream");
+        file_content_free(&content);
+
+        // a directory serves its index, so the type is the index's
+        CHECK_INT(file_load(root, "/", &content), FILE_OK);
+        CHECK_STR(content.media_type, "text/html; charset=utf-8");
+        file_content_free(&content);
     }
 
     TEST("free is safe on empty content");

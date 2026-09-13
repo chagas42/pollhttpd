@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #define HTTP_MAX_METHOD       16
@@ -29,32 +30,37 @@ typedef struct {
 } http_field;
 
 typedef struct {
-    char       method[HTTP_MAX_METHOD];
-    char       target[HTTP_MAX_TARGET];
-    char       version[HTTP_MAX_VERSION];
+    char method[HTTP_MAX_METHOD];
+    char target[HTTP_MAX_TARGET];
+    char version[HTTP_MAX_VERSION];
     http_field fields[HTTP_MAX_FIELDS];
-    size_t     field_count;
+    size_t field_count;
 
     http_body_kind body_kind;
-    size_t         body_len;
+    size_t body_len;
 } http_request;
 
+// what one feed() did: how far it got, and how many bytes it ate. the byte
+// count is what makes pipelining possible -- without it the caller cannot
+// know where the next request begins.
 typedef struct {
+    http_parse_result status;
+    size_t  consumed;
+} http_feed_result;
 
-    int          state;
-    size_t       fill;
-    size_t       remaining;
+typedef struct {
+    int state;
+    size_t fill;
+    size_t remaining;
     http_request request;
 } http_parser;
 
 void http_parser_init(http_parser *p);
 
-http_parse_result http_parser_feed(http_parser *p, const char *buf, size_t len);
+http_feed_result http_parser_feed(http_parser *p, const char *buf, size_t len);
 
 const http_request *http_parser_request(const http_parser *p);
 
 const char *http_request_find_field(const http_request *req, const char *name);
 
-int http_parser_started(const http_parser *p);
-
-int http_request_wants_keep_alive(const http_request *req);
+bool http_request_wants_keep_alive(const http_request *req);

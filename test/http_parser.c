@@ -11,7 +11,7 @@ void test_http_parser(void) {
         http_parser p;
         http_parser_init(&p);
 
-        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_OK);
+        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)).status, HTTP_PARSE_OK);
         CHECK_STR(http_parser_request(&p)->method,  "GET");
         CHECK_STR(http_parser_request(&p)->target,  "/");
         CHECK_STR(http_parser_request(&p)->version, "HTTP/1.1");
@@ -27,9 +27,9 @@ void test_http_parser(void) {
             http_parser p;
             http_parser_init(&p);
 
-            http_parse_result first = http_parser_feed(&p, raw, cut);
+            http_parse_result first = http_parser_feed(&p, raw, cut).status;
             http_parse_result second =
-                http_parser_feed(&p, raw + cut, total - cut);
+                http_parser_feed(&p, raw + cut, total - cut).status;
 
             CHECK_INT(first, HTTP_PARSE_INCOMPLETE);
             CHECK_INT(second, HTTP_PARSE_OK);
@@ -47,7 +47,7 @@ void test_http_parser(void) {
         size_t i = 0;
 
         while (i < strlen(raw)) {
-            r = http_parser_feed(&p, raw + i, 1);
+            r = http_parser_feed(&p, raw + i, 1).status;
             i++;
         }
 
@@ -61,7 +61,7 @@ void test_http_parser(void) {
         http_parser p;
         http_parser_init(&p);
 
-        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_OK);
+        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)).status, HTTP_PARSE_OK);
         CHECK_STR(http_parser_request(&p)->method, "DELETE");
         CHECK_STR(http_parser_request(&p)->target, "/a/b/c?q=1&r=2");
     }
@@ -77,7 +77,7 @@ void test_http_parser(void) {
         http_parser p;
         http_parser_init(&p);
 
-        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_OK);
+        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)).status, HTTP_PARSE_OK);
 
         const http_request *req = http_parser_request(&p);
         CHECK_INT(req->field_count, 3);
@@ -97,7 +97,7 @@ void test_http_parser(void) {
 
         http_parser p;
         http_parser_init(&p);
-        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_TOO_LARGE);
+        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)).status, HTTP_PARSE_TOO_LARGE);
     }
     {
         static char raw[8192];
@@ -112,7 +112,7 @@ void test_http_parser(void) {
 
         http_parser p;
         http_parser_init(&p);
-        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_TOO_LARGE);
+        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)).status, HTTP_PARSE_TOO_LARGE);
     }
 
     TEST("malformed input yields BAD_REQUEST");
@@ -130,7 +130,7 @@ void test_http_parser(void) {
         while (i < sizeof(ruins) / sizeof(ruins[0])) {
             http_parser p;
             http_parser_init(&p);
-            CHECK_INT(http_parser_feed(&p, ruins[i], strlen(ruins[i])),
+            CHECK_INT(http_parser_feed(&p, ruins[i], strlen(ruins[i])).status,
                       HTTP_PARSE_BAD_REQUEST);
             i++;
         }
@@ -141,7 +141,7 @@ void test_http_parser(void) {
         const char *raw = "GET / HTTP/1.1\r\n";
         http_parser p;
         http_parser_init(&p);
-        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_INCOMPLETE);
+        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)).status, HTTP_PARSE_INCOMPLETE);
     }
 
     TEST("result is stable after OK");
@@ -150,7 +150,7 @@ void test_http_parser(void) {
         http_parser p;
         http_parser_init(&p);
         http_parser_feed(&p, raw, strlen(raw));
-        CHECK_INT(http_parser_feed(&p, "lixo", 4), HTTP_PARSE_OK);
+        CHECK_INT(http_parser_feed(&p, "lixo", 4).status, HTTP_PARSE_OK);
     }
 
     TEST("state is per parser, not global");
@@ -174,13 +174,13 @@ void test_http_parser(void) {
         http_parser p;
 
         http_parser_init(&p);
-        CHECK_INT(http_parser_feed(&p, sem, strlen(sem)), HTTP_PARSE_BAD_REQUEST);
+        CHECK_INT(http_parser_feed(&p, sem, strlen(sem)).status, HTTP_PARSE_BAD_REQUEST);
 
         http_parser_init(&p);
-        CHECK_INT(http_parser_feed(&p, dois, strlen(dois)), HTTP_PARSE_BAD_REQUEST);
+        CHECK_INT(http_parser_feed(&p, dois, strlen(dois)).status, HTTP_PARSE_BAD_REQUEST);
 
         http_parser_init(&p);
-        CHECK_INT(http_parser_feed(&p, um_zero, strlen(um_zero)), HTTP_PARSE_OK);
+        CHECK_INT(http_parser_feed(&p, um_zero, strlen(um_zero)).status, HTTP_PARSE_OK);
     }
 
     TEST("body framed by Content-Length (RFC 9112 6.3)");
@@ -190,7 +190,7 @@ void test_http_parser(void) {
         http_parser p;
         http_parser_init(&p);
 
-        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_OK);
+        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)).status, HTTP_PARSE_OK);
         CHECK_INT(http_parser_request(&p)->body_len, 5);
         CHECK_INT(http_parser_request(&p)->body_kind, HTTP_BODY_LENGTH);
     }
@@ -200,7 +200,7 @@ void test_http_parser(void) {
             "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n\r\nabc";
         http_parser p;
         http_parser_init(&p);
-        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_INCOMPLETE);
+        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)).status, HTTP_PARSE_INCOMPLETE);
     }
     {
 
@@ -208,7 +208,7 @@ void test_http_parser(void) {
             "POST / HTTP/1.1\r\nHost: x\r\nContent-Length: abc\r\n\r\n";
         http_parser p;
         http_parser_init(&p);
-        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_BAD_REQUEST);
+        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)).status, HTTP_PARSE_BAD_REQUEST);
     }
 
     TEST("chunked body decoding (RFC 9112 7.1)");
@@ -221,7 +221,7 @@ void test_http_parser(void) {
         http_parser p;
         http_parser_init(&p);
 
-        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_OK);
+        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)).status, HTTP_PARSE_OK);
         CHECK_INT(http_parser_request(&p)->body_len, 11);
         CHECK_INT(http_parser_request(&p)->body_kind, HTTP_BODY_CHUNKED);
     }
@@ -236,7 +236,7 @@ void test_http_parser(void) {
         size_t i = 0;
 
         while (i < strlen(raw)) {
-            r = http_parser_feed(&p, raw + i, 1);
+            r = http_parser_feed(&p, raw + i, 1).status;
             i++;
         }
 
@@ -252,7 +252,7 @@ void test_http_parser(void) {
         http_parser p;
         http_parser_init(&p);
 
-        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)), HTTP_PARSE_CONFLICT);
+        CHECK_INT(http_parser_feed(&p, raw, strlen(raw)).status, HTTP_PARSE_CONFLICT);
     }
 
     TEST("keep-alive decision (RFC 9112 9.3, 9.6)");
@@ -274,13 +274,4 @@ void test_http_parser(void) {
         CHECK_INT(http_request_wants_keep_alive(http_parser_request(&p)), 0);
     }
 
-    TEST("tells an idle connection from a half-sent request");
-    {
-        http_parser p;
-        http_parser_init(&p);
-        CHECK_INT(http_parser_started(&p), 0);
-
-        http_parser_feed(&p, "G", 1);
-        CHECK_INT(http_parser_started(&p), 1);
-    }
 }

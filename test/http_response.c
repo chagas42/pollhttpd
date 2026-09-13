@@ -9,7 +9,7 @@ void test_http_response(void) {
         http_response res;
         const char *body = "Hello, World!";
 
-        CHECK_INT(http_response_build(&res, 200, "OK", "text/plain",
+        CHECK_INT(http_response_build(&res, 200, "text/plain",
                                       body, strlen(body), 0), 0);
         CHECK(strstr(res.data, "HTTP/1.1 200 OK\r\n") == res.data);
         CHECK(strstr(res.data, "Content-Length: 13\r\n") != NULL);
@@ -26,8 +26,8 @@ void test_http_response(void) {
         http_response get, head;
         const char *body = "abcdefghij";
 
-        http_response_build(&get,  200, "OK", "text/plain", body, 10, 0);
-        http_response_build(&head, 200, "OK", "text/plain", body, 10, 0);
+        http_response_build(&get,  200, "text/plain", body, 10, 0);
+        http_response_build(&head, 200, "text/plain", body, 10, 0);
 
         CHECK_INT(head.headers_len, get.headers_len);
         CHECK_INT(memcmp(get.data, head.data, head.headers_len), 0);
@@ -39,7 +39,7 @@ void test_http_response(void) {
     TEST("keep-alive changes the Connection header");
     {
         http_response res;
-        http_response_build(&res, 200, "OK", "text/plain", "x", 1, 1);
+        http_response_build(&res, 200, "text/plain", "x", 1, 1);
         CHECK(strstr(res.data, "Connection: keep-alive\r\n") != NULL);
         http_response_free(&res);
     }
@@ -47,7 +47,7 @@ void test_http_response(void) {
     TEST("an empty body is valid");
     {
         http_response res;
-        CHECK_INT(http_response_build(&res, 404, "Not Found", "text/plain",
+        CHECK_INT(http_response_build(&res, 404, "text/plain",
                                       "", 0, 0), 0);
         CHECK(strstr(res.data, "Content-Length: 0\r\n") != NULL);
         CHECK_INT(res.len, res.headers_len);
