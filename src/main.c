@@ -9,5 +9,11 @@ int main(void) {
 
     server_config cfg = server_config_defaults();
 
-    return server_run(&cfg) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+    int result = server_run(&cfg);
+
+    if(result == 0){
+        return EXIT_SUCCESS;
+    }
+
+    return EXIT_FAILURE;
 }

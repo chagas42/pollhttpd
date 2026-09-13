@@ -35,7 +35,7 @@ int http_response_build(
     int status,
     const char *media_type, 
     const char *body,
-    size_t body_len, int keep_alive
+    size_t body_len, bool keep_alive
 ) {
     const char *reason = http_status_reason(status);
 

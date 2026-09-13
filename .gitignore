@@ -20,3 +20,5 @@ test/run
 # saída gerada pelo -MMD e pelo alvo asan
 *.d
 test/run-asan
+build/
+compile_commands.json

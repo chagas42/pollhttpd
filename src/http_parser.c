@@ -417,18 +417,18 @@ http_feed_result http_parser_feed(http_parser *p, const char *buf, size_t len) {
     return result;
 }
 
-int http_request_wants_keep_alive(const http_request *req) {
+bool http_request_wants_keep_alive(const http_request *req) {
     const char *connection = http_request_find_field(req, "Connection");
 
     if (connection != NULL && strcasecmp(connection, "close") == 0) {
-        return 0;
+        return false;
     }
 
     if (strcmp(req->version, "HTTP/1.0") == 0) {
         return connection != NULL && strcasecmp(connection, "keep-alive") == 0;
     }
 
-    return 1;
+    return true;
 }
 
 const http_request *http_parser_request(const http_parser *p) {

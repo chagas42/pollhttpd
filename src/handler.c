@@ -48,7 +48,7 @@ int handler_error(http_response *res, int status) {
                                reason, strlen(reason), 0);
 }
 
-static int build_ok(const http_request *req, int keep_alive,
+static int build_ok(const http_request *req, bool keep_alive,
                     const char *root, http_response *res) {
     if (!method_is_known(req->method)) {
         return handler_error(res, 501);
@@ -71,10 +71,10 @@ static int build_ok(const http_request *req, int keep_alive,
 }
 
 handler_result handler_reply(const http_request *req, http_parse_result parsed,
-                             int keep_alive, const char *root,
+                             bool keep_alive, const char *root,
                              http_response *res) {
     handler_result out = { 0, 0 };
-    int head_only = 0;
+    bool head_only = false;
 
     switch (parsed) {
     case HTTP_PARSE_OK:

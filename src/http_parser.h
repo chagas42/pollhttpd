@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #define HTTP_MAX_METHOD       16
@@ -63,4 +64,4 @@ const http_request *http_parser_request(const http_parser *p);
 
 const char *http_request_find_field(const http_request *req, const char *name);
 
-int http_request_wants_keep_alive(const http_request *req);
+bool http_request_wants_keep_alive(const http_request *req);

@@ -17,19 +17,19 @@
 #define LISTEN_BACKLOG 128
 
 struct server {
-    server_config  cfg;
-    int            listen_fd;
-    conn_table    *table;
+    server_config cfg;
+    int listen_fd;
+    conn_table *table;
 };
 
 server_config server_config_defaults(void) {
     server_config cfg = {
-        .port              = "8080",
-        .root              = "www",
-        .max_connections   = 64,
-        .idle_timeout_s    = 15,
+        .port = "8080",
+        .root = "www",
+        .max_connections = 64,
+        .idle_timeout_s = 15,
         .request_timeout_s = 10,
-        .poll_timeout_ms   = 1000,
+        .poll_timeout_ms = 1000,
     };
     return cfg;
 }
@@ -169,9 +169,9 @@ int server_listen(const server_config *cfg, server **out) {
         return -1;
     }
 
-    s->cfg       = *cfg;
+    s->cfg = *cfg;
     s->listen_fd = listen_fd;
-    s->table     = conn_table_new(&s->cfg);
+    s->table = conn_table_new(&s->cfg);
 
     if (s->table == NULL) {
         free(s);
@@ -200,10 +200,9 @@ int server_port(const server *s) {
 }
 
 int server_tick(server *s, time_t now) {
-    nfds_t nfds;
-    struct pollfd *fds = conn_table_arm(s->table, s->listen_fd, &nfds);
+    poll_set set = conn_table_prepare_poll(s->table, s->listen_fd);
 
-    if (poll(fds, nfds, s->cfg.poll_timeout_ms) == -1) {
+    if (poll(set.fds, set.count, s->cfg.poll_timeout_ms) == -1) {
         if (errno == EINTR) {
             return 0;
         }
@@ -233,18 +232,18 @@ void server_stop(server *s) {
 }
 
 int server_run(const server_config *cfg) {
-    server *s = NULL;
+    server *server_pointer = NULL;
 
-    if (server_listen(cfg, &s) == -1) {
+    if (server_listen(cfg, &server_pointer) == -1) {
         return -1;
     }
 
-    log_info("listening on http://localhost:%d", server_port(s));
+    log_info("listening on http://localhost:%d", server_port(server_pointer));
 
-    while (server_tick(s, time(NULL)) == 0) {
+    while (server_tick(server_pointer, time(NULL)) == 0) {
         ;
     }
 
-    server_stop(s);
+    server_stop(server_pointer);
     return -1;
 }

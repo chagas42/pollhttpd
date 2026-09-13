@@ -37,7 +37,7 @@ void connection_open(
     conn->out.headers_len = 0;
     conn->sent = 0;
     conn->to_send = 0;
-    conn->keep_alive = 0;
+    conn->keep_alive = false;
     conn->idle_since = now;
     conn->deadline = 0;
     conn->in_len = 0;
@@ -69,20 +69,25 @@ static void connection_reset(connection *conn, time_t now) {
 }
 
 static int reply(connection *conn, http_parse_result parsed, time_t now) {
-    int keep_alive =
-        (parsed == HTTP_PARSE_OK)
-            ? http_request_wants_keep_alive(http_parser_request(&conn->parser))
-            : 0;
+    bool keep_alive = false;
 
-    handler_result r = handler_reply(http_parser_request(&conn->parser),
-                                     parsed, keep_alive,
-                                     conn->cfg->root, &conn->out);
-    if (r.ok == -1) {
+    if(parsed == HTTP_PARSE_OK){
+      keep_alive = http_request_wants_keep_alive(http_parser_request(&conn->parser));
+    }
+
+    handler_result result = handler_reply(
+      http_parser_request(&conn->parser),
+      parsed, keep_alive,
+      conn->cfg->root,
+      &conn->out
+    );
+
+    if (result.ok == -1) {
         log_error("could not build the response");
         return -1;
     }
 
-    begin_response(conn, r.to_send, keep_alive, now);
+    begin_response(conn, result.to_send, keep_alive, now);
     return 0;
 }
 
@@ -100,19 +105,22 @@ static int feed_buffered(connection *conn, time_t now) {
         conn->deadline = now + conn->cfg->request_timeout_s;
     }
 
-    http_feed_result r = http_parser_feed(&conn->parser,
-                                          conn->in + conn->in_pos,
-                                          conn->in_len - conn->in_pos);
-    conn->in_pos += r.consumed;
+    http_feed_result result = http_parser_feed(
+      &conn->parser,
+      conn->in + conn->in_pos,
+      conn->in_len - conn->in_pos
+    );
 
-    if (r.status == HTTP_PARSE_INCOMPLETE) {
+    conn->in_pos += result.consumed;
+
+    if (result.status == HTTP_PARSE_INCOMPLETE) {
         // the parser holds the partial request, so the buffer can be refilled
         conn->in_pos = 0;
         conn->in_len = 0;
         return 0;
     }
 
-    return reply(conn, r.status, now);
+    return reply(conn, result.status, now);
 }
 
 static int on_readable(connection *conn, time_t now) {
@@ -197,7 +205,7 @@ int connection_on_clock(connection *conn, time_t now) {
 
         if (conn->state == CONN_READING && handler_error(&conn->out, 408) == 0) {
             log_info("408 for a connection stalled mid-request");
-            begin_response(conn, conn->out.len, 0, now);
+            begin_response(conn, conn->out.len, false, now);
             return 0;
         }
 

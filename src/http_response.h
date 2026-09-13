@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 
 typedef struct {
@@ -11,7 +12,7 @@ typedef struct {
 // reason is derived from status, not passed: the two cannot disagree
 int http_response_build(http_response *res, int status,
                         const char *media_type, const char *body,
-                        size_t body_len, int keep_alive);
+                        size_t body_len, bool keep_alive);
 
 void http_response_free(http_response *res);
 

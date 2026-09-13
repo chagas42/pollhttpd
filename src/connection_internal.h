@@ -2,6 +2,8 @@
 
 // private to connection.c and conn_table.c: nobody else sees the fields
 
+#include <stdbool.h>
+
 #include "connection.h"
 #include "http_parser.h"
 #include "http_response.h"
@@ -21,7 +23,7 @@ struct connection {
     http_response        out;
     size_t               sent;
     size_t               to_send;
-    int                  keep_alive;
+    bool                 keep_alive;
     time_t               idle_since;
     time_t               deadline;   // 0 when nothing is in flight
 

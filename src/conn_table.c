@@ -1,127 +1,141 @@
 #include "conn_table.h"
 
 #include <stdlib.h>
+#include <stdbool.h>
 
-#include "connection_internal.h"
+// for the complete type only: sizeof and indexing, never a named symbol
+#include "connection_internal.h"  // IWYU pragma: keep
 
 struct conn_table {
     const server_config *cfg;
-    connection          *conns;
-    struct pollfd       *fds;
-    size_t               count;
-    size_t               cap;
+    connection *conns;
+    struct pollfd *fds;
+    size_t count;
+    size_t cap;
 };
 
 conn_table *conn_table_new(const server_config *cfg) {
-    conn_table *t = calloc(1, sizeof(*t));
-    if (t == NULL) {
+    conn_table *table_pointer = calloc(1, sizeof(*table_pointer));
+    if (table_pointer == NULL) {
         return NULL;
     }
 
     //initialize connection array and pollfd array
     // this two arrays are used to multiplex connections
-    t->conns = calloc(cfg->max_connections, sizeof(*t->conns));
-    t->fds   = calloc(cfg->max_connections + 1, sizeof(*t->fds));
+    table_pointer->conns = calloc(cfg->max_connections, sizeof(*table_pointer->conns));
+    table_pointer->fds   = calloc(cfg->max_connections + 1, sizeof(*table_pointer->fds));
 
-    if (t->conns == NULL || t->fds == NULL) {
-        free(t->conns);
-        free(t->fds);
-        free(t);
+    if (table_pointer->conns == NULL || table_pointer->fds == NULL) {
+      //cleanup on error to provide memory safety
+        free(table_pointer->conns);
+        free(table_pointer->fds);
+        free(table_pointer);
         return NULL;
     }
 
-    t->cfg   = cfg;
-    t->cap   = cfg->max_connections;
-    t->count = 0;
-    return t;
+    table_pointer->cfg = cfg;
+    table_pointer->cap = cfg->max_connections;
+    table_pointer->count = 0;
+    return table_pointer;
 }
 
-static void drop(conn_table *t, size_t index) {
-    connection_close(&t->conns[index]);
+// true enquanto o indice ainda aponta para uma conexao viva. como funcao,
+// a condicao e reavaliada a cada volta -- um bool guardado antes do laco
+// congela no valor de entrada
+static bool has_work(const conn_table *table_pointer, size_t index) {
+    return index < table_pointer->count;
+}
+
+static void drop(conn_table *table_pointer, size_t index) {
+    connection_close(&table_pointer->conns[index]);
     //swap-remove for drop function
-    t->conns[index] = t->conns[t->count - 1];
-    t->count -= 1;
+    table_pointer->conns[index] = table_pointer->conns[table_pointer->count - 1];
+    table_pointer->count -= 1;
 }
 
-void conn_table_free(conn_table *t) {
-    if (t == NULL) {
+void conn_table_free(conn_table *table_pointer) {
+    if (table_pointer == NULL) {
         return;
     }
 
-    while (t->count > 0) {
-        drop(t, t->count - 1);
+    while (table_pointer->count > 0) {
+        drop(table_pointer, table_pointer->count - 1);
     }
 
-    free(t->conns);
-    free(t->fds);
-    free(t);
+    free(table_pointer->conns);
+    free(table_pointer->fds);
+    free(table_pointer);
 }
 
-int conn_table_full(const conn_table *t) {
-    return t->count >= t->cap;
+bool conn_table_is_full(const conn_table *table_pointer) {
+    return table_pointer->count >= table_pointer->cap;
 }
 
-size_t conn_table_count(const conn_table *t) {
-    return t->count;
+size_t conn_table_count(const conn_table *table_pointer) {
+    return table_pointer->count;
 }
 
-int conn_table_admit(conn_table *t, int fd, time_t now) {
-    if (conn_table_full(t)) {
+int conn_table_admit(conn_table *table_pointer, int fd, time_t now) {
+    if (conn_table_is_full(table_pointer)) {
         return -1;
     }
 
-    connection_open(&t->conns[t->count], fd, t->cfg, now);
-    t->count += 1;
+    connection_open(&table_pointer->conns[table_pointer->count], fd, table_pointer->cfg, now);
+    table_pointer->count += 1;
     return 0;
 }
 
-struct pollfd *conn_table_arm(conn_table *t, int listen_fd, nfds_t *nfds) {
-    t->fds[0].fd      = conn_table_full(t) ? -1 : listen_fd;
-    t->fds[0].events  = POLLIN;
-    t->fds[0].revents = 0;
+poll_set conn_table_prepare_poll(conn_table *table_pointer, int listen_fd) {
+    table_pointer->fds[0].fd = conn_table_is_full(table_pointer) ? -1 : listen_fd;
+    table_pointer->fds[0].events = POLLIN;
+    table_pointer->fds[0].revents = 0;
 
     size_t i = 0;
+
     //skiped this loops while count is 0
-    while (i < t->count) {
-        t->fds[i + 1].fd      = connection_fd(&t->conns[i]);
-        t->fds[i + 1].events  = connection_interest(&t->conns[i]);
-        t->fds[i + 1].revents = 0;
+    while (has_work(table_pointer, i)) {
+        table_pointer->fds[i + 1].fd = connection_fd(&table_pointer->conns[i]);
+        table_pointer->fds[i + 1].events = connection_interest(&table_pointer->conns[i]);
+        table_pointer->fds[i + 1].revents = 0;
         i++;
     }
 
-    *nfds = (nfds_t)(t->count + 1);
-    return t->fds;
+    poll_set set = {
+        .fds = table_pointer->fds,
+        .count = (nfds_t)(table_pointer->count + 1),
+    };
+    return set;
 }
 
-short conn_table_listener_revents(const conn_table *t) {
-    return t->fds[0].revents;
+short conn_table_listener_revents(const conn_table *table_pointer) {
+    return table_pointer->fds[0].revents;
 }
 
-void conn_table_dispatch(conn_table *t, time_t now) {
-    size_t i = t->count;
+void conn_table_dispatch(conn_table *table_pointer, time_t now) {
+    size_t i = table_pointer->count;
 
     while (i > 0) {
         i--;
 
-        short revents = t->fds[i + 1].revents;
+        short revents = table_pointer->fds[i + 1].revents;
         if (revents == 0) {
             continue;
         }
 
-        if (connection_on_ready(&t->conns[i], revents, now) == -1) {
-            drop(t, i);
+        if (connection_on_ready(&table_pointer->conns[i], revents, now) == -1) {
+            drop(table_pointer, i);
         }
     }
 }
 
-void conn_table_expire(conn_table *t, time_t now) {
-    size_t i = t->count;
+void conn_table_expire(conn_table *table_pointer, time_t now) {
+    size_t i = table_pointer->count;
 
     while (i > 0) {
         i--;
 
-        if (connection_on_clock(&t->conns[i], now) == -1) {
-            drop(t, i);
+        if (connection_on_clock(&table_pointer->conns[i], now) == -1) {
+            drop(table_pointer, i);
         }
     }
 }

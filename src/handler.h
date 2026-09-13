@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdbool.h>
+
 #include "http_parser.h"
 #include "http_response.h"
 
@@ -9,7 +11,7 @@ typedef struct {
 } handler_result;
 
 handler_result handler_reply(const http_request *req, http_parse_result parsed,
-                             int keep_alive, const char *root,
+                             bool keep_alive, const char *root,
                              http_response *res);
 
 int handler_error(http_response *res, int status);
