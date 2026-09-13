@@ -393,24 +393,29 @@ static void step(http_parser *p, char c) {
     }
 }
 
-http_feed_result http_parser_feed(http_parser *p, const char *buf, size_t len) {
+http_feed_result http_parser_feed(http_parser *parser_pointer, const char *buf, size_t len) {
     size_t i = 0;
 
-    while (i < len && p->state != S_DONE && p->state != S_BAD_REQUEST &&
-           p->state != S_TOO_LARGE && p->state != S_CONFLICT) {
-        step(p, buf[i]);
+    while (
+      i < len &&
+      parser_pointer->state != S_DONE &&
+      parser_pointer->state != S_BAD_REQUEST &&
+      parser_pointer->state != S_TOO_LARGE &&
+      parser_pointer->state != S_CONFLICT
+    ) {
+          step(parser_pointer, buf[i]);
         i++;
     }
 
     http_feed_result result = { HTTP_PARSE_INCOMPLETE, i };
 
-    if (p->state == S_DONE) {
+    if (parser_pointer->state == S_DONE) {
         result.status = HTTP_PARSE_OK;
-    } else if (p->state == S_BAD_REQUEST) {
+    } else if (parser_pointer->state == S_BAD_REQUEST) {
         result.status = HTTP_PARSE_BAD_REQUEST;
-    } else if (p->state == S_TOO_LARGE) {
+    } else if (parser_pointer->state == S_TOO_LARGE) {
         result.status = HTTP_PARSE_TOO_LARGE;
-    } else if (p->state == S_CONFLICT) {
+    } else if (parser_pointer->state == S_CONFLICT) {
         result.status = HTTP_PARSE_CONFLICT;
     }
 

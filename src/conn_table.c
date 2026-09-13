@@ -113,7 +113,6 @@ short conn_table_listener_revents(const conn_table *table_pointer) {
 
 void conn_table_dispatch(conn_table *table_pointer, time_t now) {
     size_t i = table_pointer->count;
-
     while (i > 0) {
         i--;
 

@@ -30,14 +30,14 @@ typedef struct {
 } http_field;
 
 typedef struct {
-    char       method[HTTP_MAX_METHOD];
-    char       target[HTTP_MAX_TARGET];
-    char       version[HTTP_MAX_VERSION];
+    char method[HTTP_MAX_METHOD];
+    char target[HTTP_MAX_TARGET];
+    char version[HTTP_MAX_VERSION];
     http_field fields[HTTP_MAX_FIELDS];
-    size_t     field_count;
+    size_t field_count;
 
     http_body_kind body_kind;
-    size_t         body_len;
+    size_t body_len;
 } http_request;
 
 // what one feed() did: how far it got, and how many bytes it ate. the byte
@@ -45,14 +45,13 @@ typedef struct {
 // know where the next request begins.
 typedef struct {
     http_parse_result status;
-    size_t            consumed;
+    size_t  consumed;
 } http_feed_result;
 
 typedef struct {
-
-    int          state;
-    size_t       fill;
-    size_t       remaining;
+    int state;
+    size_t fill;
+    size_t remaining;
     http_request request;
 } http_parser;
 
